@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="EPOX web – náhodná stránka s vlastním terminálem a kontrolou kódu">
+  <title>EPOX web</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <header class="hero">
+    <h1 class="logo">EPOX<span class="blink">_</span></h1>
+    <p class="tagline">Náhodný web s vlastním terminálem. Klikni do okna a napiš <code>help</code>.</p>
+  </header>
+
+  <main>
+    <!-- TERMINÁL (cmd) -->
+    <section class="terminal" aria-label="Terminál">
+      <div class="term-bar">
+        <span class="dot red"></span><span class="dot yellow"></span><span class="dot green"></span>
+        <span class="term-title">C:\EPOX\cmd.exe</span>
+      </div>
+      <div id="term-output" class="term-output" aria-live="polite"></div>
+      <form id="term-form" class="term-line">
+        <label for="term-input" class="prompt">C:\EPOX&gt;</label>
+        <input id="term-input" type="text" autocomplete="off" spellcheck="false">
+      </form>
+    </section>
+
+    <!-- NÁHODNÉ KARTY -->
+    <section class="cards" aria-label="Náhodné věci">
+      <article class="card">
+        <h2>Fakt dne</h2>
+        <p id="fact" class="fact"></p>
+        <button type="button" id="new-fact" class="small-btn">Další fakt</button>
+      </article>
+      <article class="card">
+        <h2>Hod kostkou</h2>
+        <p id="dice" class="dice">⚀</p>
+        <button type="button" id="roll" class="small-btn">Hodit</button>
+      </article>
+      <article class="card">
+        <h2>Hodiny</h2>
+        <p id="clock" class="clock">--:--:--</p>
+        <p id="date" class="date"></p>
+      </article>
+    </section>
+
+    <!-- PANEL, KTERÝ OTEVÍRAJÍ 3 TLAČÍTKA -->
+    <section id="panel" class="panel" hidden>
+      <div class="panel-head">
+        <h2 id="panel-title">Panel</h2>
+        <button type="button" id="panel-close" class="close-btn" aria-label="Zavřít panel">✕</button>
+      </div>
+      <div id="panel-body"></div>
+    </section>
+  </main>
+
+  <!-- 3 TLAČÍTKA DOLE -->
+  <footer class="footer">
+    <nav class="buttons" aria-label="Hlavní tlačítka">
+      <button type="button" class="big-btn" id="btn-history">📜 Co jsme dělali</button>
+      <button type="button" class="big-btn" id="btn-check">✅ Kontrola kódu</button>
+      <button type="button" class="big-btn" id="btn-md">📝 Kontrola v Markdownu</button>
+    </nav>
+    <p class="credit">EPOX web · <a href="https://github.com/orsi10jir-cloud/EPOX">GitHub</a></p>
+  </footer>
+
+  <canvas id="matrix" hidden></canvas>
+
+  <script src="script.js"></script>
+</body>
+</html>

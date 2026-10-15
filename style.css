@@ -70,7 +70,7 @@ code {
   height: 280px;
   overflow-y: auto;
   white-space: pre-wrap;
-  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 .term-output .cmd { color: var(--accent); }
 .term-output .err { color: var(--err); }
@@ -174,7 +174,7 @@ code {
   display: grid; grid-template-columns: 28px 1fr; gap: 4px 8px;
   padding: 8px 0; border-bottom: 1px solid var(--border);
 }
-.checks .detail { grid-column: 2; color: var(--muted); font-size: 0.9rem; font-family: var(--mono); word-break: break-word; }
+.checks .detail { grid-column: 2; color: var(--muted); font-size: 0.9rem; font-family: var(--mono); overflow-wrap: anywhere; }
 .checks .ok .name { color: var(--text); }
 .checks .varovani .name { color: var(--warn); }
 .checks .chyba .name { color: var(--err); }

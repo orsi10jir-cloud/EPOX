@@ -14,7 +14,7 @@ Náhodný web s vlastním terminálem (cmd) a třemi tlačítky dole.
 ## 3 tlačítka
 
 1. **📜 Co jsme dělali** – co jsem dělal já, co Claude a nastavení Claude.
-2. **✅ Kontrola kódu** – web zkontroluje sám sebe (18 testů) + odkaz na W3C validátor.
+2. **✅ Kontrola kódu** – web zkontroluje sám sebe (18 testů) + oficiální [W3C HTML validátor](https://validator.w3.org/) a [W3C CSS validátor](https://jigsaw.w3.org/css-validator/).
 3. **📝 Kontrola v Markdownu** – stejná kontrola, výsledek v Markdownu (kopírovat / stáhnout `.md`).
 
 ## Příkazy v terminálu

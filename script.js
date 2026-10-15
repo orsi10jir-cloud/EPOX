@@ -198,6 +198,7 @@ const HISTORIE = {
     'Zadal jsi web se 3 tlačítky dole, náhodným obsahem a klidně i s cmd.',
     'Vybral jsi Markdown jako jazyk „naučitelný za 60 sekund“ pro 3. tlačítko.',
     'Vybral jsi, že kontrola kódu má zkontrolovat web sám sebe.',
+    'Chtěl jsi, aby kontrola používala W3C HTML a W3C CSS validátor.',
     'Chtěl jsi, aby web běžel na GitHubu.',
   ],
   ja: [
@@ -206,6 +207,7 @@ const HISTORIE = {
     'Udělal jsem terminál s 15 příkazy (help, vtip, matrix, color…) a historií šipkami.',
     'Přidal jsem náhodné karty: fakt dne, kostku a hodiny.',
     'Napsal jsem kontrolu kódu se 18 testy a její verzi v Markdownu (kopírovat / stáhnout .md).',
+    'Zapojil jsem do kontroly oficiální W3C validátory HTML (validator.w3.org) a CSS (jigsaw.w3.org).',
     'Vytvořil jsem složku na tvém počítači a nahrál web na GitHub Pages.',
   ],
   nastaveni: [
@@ -308,16 +310,79 @@ function spocitej(v) {
   };
 }
 
-function w3cOdkaz() {
-  if (location.protocol.startsWith('http')) {
-    return el('p', { class: 'note' }, 'Oficiální kontrola od W3C: ',
-      el('a', { href: `https://validator.w3.org/nu/?doc=${encodeURIComponent(location.href)}`, target: '_blank', rel: 'noopener' }, 'validator.w3.org'));
+/* ---------- Oficiální W3C validátory ---------- */
+const adresaWebu = () => location.href.split('#')[0].split('?')[0].replace(/index\.html$/, '');
+const W3C_HTML_ODKAZ = () => `https://validator.w3.org/nu/?doc=${encodeURIComponent(adresaWebu())}`;
+const W3C_CSS_ODKAZ = () => `https://jigsaw.w3.org/css-validator/validator?profile=css3svg&uri=${encodeURIComponent(adresaWebu() + 'style.css')}`;
+
+// Zavolá oba W3C validátory a vrátí 2 řádky do kontroly
+async function w3cKontrola() {
+  if (!location.protocol.startsWith('http')) {
+    return [
+      { nazev: 'W3C HTML validátor', stav: 'varovani', detail: 'funguje jen na webu (GitHub Pages), ne z disku' },
+      { nazev: 'W3C CSS validátor', stav: 'varovani', detail: 'funguje jen na webu (GitHub Pages), ne z disku' },
+    ];
   }
-  return el('p', { class: 'note' }, 'Tip: až bude web na GitHub Pages, tady se objeví odkaz na oficiální W3C validátor.');
+  const vysledky = [];
+
+  // 1) HTML – validator.w3.org
+  try {
+    const odpoved = await fetch(`https://validator.w3.org/nu/?out=json&doc=${encodeURIComponent(adresaWebu())}`);
+    const data = await odpoved.json();
+    const chybyHtml = data.messages.filter((m) => m.type === 'error');
+    const varHtml = data.messages.filter((m) => m.subType === 'warning');
+    vysledky.push({
+      nazev: 'W3C HTML validátor',
+      stav: chybyHtml.length ? 'chyba' : varHtml.length ? 'varovani' : 'ok',
+      detail: chybyHtml.length
+        ? `${chybyHtml.length} chyb: ` + chybyHtml.slice(0, 3).map((m) => `ř. ${m.lastLine}: ${m.message}`).join(' | ')
+        : `0 chyb, ${varHtml.length} varování`,
+    });
+  } catch {
+    vysledky.push({ nazev: 'W3C HTML validátor', stav: 'varovani', detail: 'validátor neodpověděl – zkus odkaz níže' });
+  }
+
+  // 2) CSS – jigsaw.w3.org
+  try {
+    const odpoved = await fetch(`https://jigsaw.w3.org/css-validator/validator?output=json&profile=css3svg&uri=${encodeURIComponent(adresaWebu() + 'style.css')}`);
+    const data = (await odpoved.json()).cssvalidation;
+    const chybyCss = data.errors || [];
+    // Varování „CSS proměnné se nekontrolují“ jsou jen informace, ne problém
+    const varCss = (data.warnings || []).filter((w) => w.type !== 'css-variable');
+    const info = (data.warnings || []).length - varCss.length;
+    vysledky.push({
+      nazev: 'W3C CSS validátor',
+      stav: chybyCss.length ? 'chyba' : varCss.length ? 'varovani' : 'ok',
+      detail: chybyCss.length
+        ? `${chybyCss.length} chyb: ` + chybyCss.slice(0, 3).map((e) => `ř. ${e.line}: ${e.message.trim()}`).join(' | ')
+        : `platné CSS 3, 0 chyb, ${varCss.length} varování (+${info}× info o CSS proměnných)`,
+    });
+  } catch {
+    vysledky.push({ nazev: 'W3C CSS validátor', stav: 'varovani', detail: 'validátor neodpověděl – zkus odkaz níže' });
+  }
+  return vysledky;
 }
 
-function ukazKontrolu() {
-  const v = kontrola();
+// Celá kontrola = moje testy + W3C
+async function celaKontrola() {
+  return [...kontrola(), ...(await w3cKontrola())];
+}
+
+function w3cOdkazy() {
+  if (!location.protocol.startsWith('http')) {
+    return el('p', { class: 'note' }, 'Tip: W3C validátory fungují, až když web běží na GitHub Pages.');
+  }
+  return el('p', { class: 'note' }, 'Otevřít přímo u W3C: ',
+    el('a', { href: W3C_HTML_ODKAZ(), target: '_blank', rel: 'noopener' }, 'HTML validátor'),
+    ' · ',
+    el('a', { href: W3C_CSS_ODKAZ(), target: '_blank', rel: 'noopener' }, 'CSS validátor'));
+}
+
+const nacitam = () => el('p', { class: 'note' }, '⏳ Kontroluji… ptám se W3C validátorů (validator.w3.org a jigsaw.w3.org)…');
+
+async function ukazKontrolu() {
+  otevriPanel('✅ Kontrola kódu', nacitam());
+  const v = await celaKontrola();
   const p = spocitej(v);
   otevriPanel('✅ Kontrola kódu',
     el('div', { class: 'summary' },
@@ -331,7 +396,7 @@ function ukazKontrolu() {
         el('span', { class: 'name' }, r.nazev),
         el('span', { class: 'detail' }, r.detail),
       ))),
-    w3cOdkaz(),
+    w3cOdkazy(),
   );
 }
 
@@ -347,6 +412,9 @@ function vytvorMarkdown(v) {
   v.forEach((r, i) => {
     md += `| ${i + 1} | ${r.nazev} | ${IKONA[r.stav]} | \`${r.detail.replace(/\|/g, '\\|')}\` |\n`;
   });
+  if (location.protocol.startsWith('http')) {
+    md += `\n## Oficiální W3C validátory\n\n- [HTML validátor](${W3C_HTML_ODKAZ()})\n- [CSS validátor](${W3C_CSS_ODKAZ()})\n`;
+  }
   md += '\n## Verdikt\n\n';
   md += p.chyba ? '**Web má chyby – oprav je.**\n'
     : p.varovani ? 'Web funguje, ale jsou tu **varování**.\n'
@@ -359,7 +427,8 @@ function mdNaHtml(md) {
   const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   const radkovy = (s) => esc(s)
     .replace(/`(.+?)`/g, '<code>$1</code>')
-    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\[([^\]]+)\]\((https:\/\/[^)\s"]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
   const bunky = (l) => l.trim().slice(1, -1).split(/(?<!\\)\|/)
     .map((c) => radkovy(c.trim().replace(/\\\|/g, '|')));
 
@@ -393,8 +462,9 @@ function mdNaHtml(md) {
   return html;
 }
 
-function ukazMarkdown() {
-  const md = vytvorMarkdown(kontrola());
+async function ukazMarkdown() {
+  otevriPanel('📝 Kontrola v Markdownu', nacitam());
+  const md = vytvorMarkdown(await celaKontrola());
   const zdroj = el('pre', { class: 'md-source' }, md);
   const vykresleno = el('div', { class: 'md-render' });
   vykresleno.innerHTML = mdNaHtml(md); // obsah je escapovaný v mdNaHtml

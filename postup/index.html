@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Jak vznikl EPOX web – celý postup krok za krokem, commity a kód s vysvětlením">
+  <title>Jak vznikl EPOX web</title>
+  <style>
+    :root {
+      --bg: #0a0d12;
+      --panel: #11161e;
+      --panel2: #161d27;
+      --border: #243142;
+      --text: #d9e4ef;
+      --muted: #8496aa;
+      --accent: #39ff8f;
+      --blue: #4ad8ff;
+      --warn: #ffc94a;
+      --err: #ff6b7a;
+      --mono: "Cascadia Code", Consolas, "Courier New", monospace;
+      --sans: "Segoe UI", system-ui, -apple-system, sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--text); font-family: var(--sans); line-height: 1.6; }
+    a { color: var(--blue); }
+    code { font-family: var(--mono); background: #1a2330; padding: 1px 6px; border-radius: 4px; color: var(--accent); font-size: 0.92em; }
+    .wrap { max-width: 980px; margin: 0 auto; padding: 0 16px; }
+
+    header { border-bottom: 1px solid var(--border); background: radial-gradient(circle at 20% 0%, #10331f 0%, transparent 55%); }
+    header .wrap { padding-top: 48px; padding-bottom: 36px; }
+    .kicker { font-family: var(--mono); color: var(--accent); font-size: 0.9rem; margin: 0 0 8px; }
+    h1 { font-size: clamp(2rem, 6vw, 3.2rem); margin: 0 0 12px; line-height: 1.15; }
+    .lead { color: var(--muted); max-width: 680px; margin: 0 0 20px; font-size: 1.1rem; }
+    .links { display: flex; flex-wrap: wrap; gap: 10px; }
+    .links a { text-decoration: none; padding: 8px 14px; border: 1px solid var(--border); border-radius: 8px; color: var(--text); background: var(--panel); }
+    .links a:hover { border-color: var(--accent); color: var(--accent); }
+
+    nav.toc { position: sticky; top: 0; z-index: 5; background: rgba(10, 13, 18, 0.94); border-bottom: 1px solid var(--border); backdrop-filter: blur(6px); }
+    nav.toc .wrap { display: flex; gap: 4px; overflow-x: auto; padding-top: 8px; padding-bottom: 8px; }
+    nav.toc a { white-space: nowrap; text-decoration: none; color: var(--muted); padding: 6px 12px; border-radius: 6px; font-size: 0.95rem; }
+    nav.toc a:hover { color: var(--text); background: var(--panel2); }
+
+    section { padding: 40px 0 8px; }
+    h2 { font-size: 1.6rem; margin: 0 0 6px; }
+    h2 .num { font-family: var(--mono); color: var(--accent); margin-right: 8px; }
+    .sub { color: var(--muted); margin: 0 0 20px; }
+
+    /* Jak pracuji – tok */
+    .flow { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; counter-reset: krok; }
+    .flow div { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 14px; position: relative; }
+    .flow div::before { counter-increment: krok; content: counter(krok); position: absolute; top: -10px; left: 12px; background: var(--accent); color: #000; font-weight: 700; font-family: var(--mono); font-size: 0.8rem; padding: 1px 8px; border-radius: 999px; }
+    .flow strong { display: block; margin: 4px 0; }
+    .flow span { color: var(--muted); font-size: 0.92rem; }
+
+    /* Časová osa */
+    .timeline { list-style: none; margin: 0; padding: 0; border-left: 2px solid var(--border); }
+    .timeline li { position: relative; padding: 0 0 22px 24px; }
+    .timeline li::before { content: ""; position: absolute; left: -7px; top: 6px; width: 12px; height: 12px; border-radius: 50%; background: var(--accent); }
+    .timeline li.problem::before { background: var(--warn); }
+    .timeline .time { font-family: var(--mono); color: var(--muted); font-size: 0.85rem; }
+    .timeline h3 { margin: 2px 0 4px; font-size: 1.08rem; }
+    .timeline p { margin: 0 0 4px; }
+    .tag { display: inline-block; font-size: 0.75rem; font-weight: 700; padding: 1px 8px; border-radius: 999px; margin-left: 6px; vertical-align: middle; }
+    .tag.p { background: #3a2f10; color: var(--warn); }
+    .tag.ok { background: #10331f; color: var(--accent); }
+    .why { color: var(--muted); font-size: 0.95rem; }
+
+    /* Karty */
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
+    .card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+    .card h3 { margin: 0 0 8px; font-size: 1.05rem; color: var(--accent); }
+    .card ul { margin: 0; padding-left: 18px; }
+    .card li { margin-bottom: 4px; }
+
+    /* Commity */
+    .commits { display: flex; flex-direction: column; gap: 8px; }
+    .commit { display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: center; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; }
+    .commit .sha { font-family: var(--mono); color: var(--accent); text-decoration: none; }
+    .commit .date { color: var(--muted); font-size: 0.85rem; white-space: nowrap; }
+    .loading { color: var(--muted); font-style: italic; }
+
+    /* Kód */
+    .tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+    .tabs button { font: inherit; font-family: var(--mono); cursor: pointer; background: var(--panel); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 6px 12px; }
+    .tabs button.active { background: var(--accent); color: #000; border-color: var(--accent); }
+    .code-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; }
+    @media (min-width: 900px) { .code-layout { grid-template-columns: 320px minmax(0, 1fr); } }
+    .explain { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 16px; align-self: start; }
+    .explain h3 { margin: 0 0 6px; color: var(--accent); font-family: var(--mono); font-size: 1rem; }
+    .explain dl { margin: 10px 0 0; }
+    .explain dt { font-weight: 700; margin-top: 10px; }
+    .explain dd { margin: 2px 0 0; color: var(--muted); font-size: 0.93rem; }
+    .codebox { background: #05070a; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+    .codebar { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 8px 12px; background: var(--panel2); font-family: var(--mono); font-size: 0.85rem; color: var(--muted); }
+    .codebar a { color: var(--muted); }
+    pre.code { margin: 0; padding: 12px 0; max-height: 560px; overflow: auto; font-family: var(--mono); font-size: 0.85rem; line-height: 1.5; counter-reset: line; }
+    pre.code span.l { display: block; padding: 0 14px 0 0; white-space: pre; }
+    pre.code span.l::before { counter-increment: line; content: counter(line); display: inline-block; width: 44px; padding-right: 12px; text-align: right; color: #3d4c5e; user-select: none; }
+    pre.code .c { color: #6f8396; }
+
+    table { width: 100%; border-collapse: collapse; font-size: 0.95rem; }
+    th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+    th { color: var(--muted); font-weight: 600; }
+
+    footer { margin-top: 48px; border-top: 1px solid var(--border); color: var(--muted); font-size: 0.9rem; }
+    footer .wrap { padding-top: 20px; padding-bottom: 40px; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <p class="kicker">// EPOX web · 15. 10. 2026</p>
+    <h1>Jak vznikl EPOX web</h1>
+    <p class="lead">Celý postup krok za krokem: co jsi chtěl ty, co jsem udělal já a proč, jaké problémy se objevily a jak jsem je vyřešil. Dole je kompletní kód s vysvětlením.</p>
+    <div class="links">
+      <a href="https://orsi10jir-cloud.github.io/EPOX/">🌐 EPOX web</a>
+      <a href="https://github.com/orsi10jir-cloud/EPOX">📁 Kód na GitHubu</a>
+      <a href="https://validator.w3.org/nu/?doc=https%3A%2F%2Forsi10jir-cloud.github.io%2FEPOX%2F">✅ W3C HTML</a>
+      <a href="https://jigsaw.w3.org/css-validator/validator?profile=css3svg&amp;uri=https%3A%2F%2Forsi10jir-cloud.github.io%2FEPOX%2Fstyle.css">✅ W3C CSS</a>
+    </div>
+  </div>
+</header>
+
+<nav class="toc" aria-label="Obsah">
+  <div class="wrap">
+    <a href="#jak">Jak pracuji</a>
+    <a href="#postup">Časová osa</a>
+    <a href="#nastaveni">Nastavení a nástroje</a>
+    <a href="#commity">Commity</a>
+    <a href="#kod">Kód</a>
+    <a href="#slovnik">Slovníček</a>
+  </div>
+</nav>
+
+<main class="wrap">
+
+  <!-- 1 -->
+  <section id="jak">
+    <h2><span class="num">01</span>Jak pracuji</h2>
+    <p class="sub">Tenhle cyklus se opakoval u každé změny webu.</p>
+    <div class="flow">
+      <div><strong>Zadání</strong><span>Přečtu, co chceš. Když je něco nejasné, zeptám se dřív, než začnu psát.</span></div>
+      <div><strong>Psaní kódu</strong><span>Napíšu soubory <code>index.html</code>, <code>style.css</code> a <code>script.js</code> ve svém pracovním prostoru.</span></div>
+      <div><strong>Test</strong><span>Zkontroluju syntaxi (<code>node --check</code>) a otevřu web v neviditelném prohlížeči Chromium, kde proklikám tlačítka a hledám chyby.</span></div>
+      <div><strong>Přenos k tobě</strong><span>Zkopíruju hotové soubory do složky <code>Dokumenty\EPOX-web</code> na tvém počítači.</span></div>
+      <div><strong>Git commit</strong><span>Uložím změnu do historie gitu se zprávou, co se změnilo.</span></div>
+      <div><strong>Git push</strong><span>Pošlu změny na GitHub přes git na tvém počítači, kde jsi přihlášený.</span></div>
+      <div><strong>Ověření</strong><span>Počkám, až GitHub Pages web postaví, otevřu ho a nechám ho zkontrolovat W3C validátory.</span></div>
+    </div>
+  </section>
+
+  <!-- 2 -->
+  <section id="postup">
+    <h2><span class="num">02</span>Časová osa</h2>
+    <p class="sub">Zelená tečka = krok práce, žlutá = problém a jeho řešení.</p>
+    <ol class="timeline">
+      <li>
+        <span class="time">14:55</span>
+        <h3>Zadání</h3>
+        <p>Chtěl jsi web se 3 tlačítky dole: „co jsme dělali“, kontrola kódu a kontrola v jazyce, který se dá naučit za 60 sekund. Obsah klidně náhodný, klidně s cmd. Nahrát na GitHub do repozitáře <code>EPOX</code>.</p>
+      </li>
+      <li>
+        <span class="time">14:56</span>
+        <h3>4 otázky</h3>
+        <p>Zeptal jsem se na jazyk (vybral jsi <strong>Markdown</strong>), co má kontrola dělat (<strong>web zkontroluje sám sebe</strong>), jak se to nahraje a co má být v historii. Upřesnil jsi, že tohle je EPOX <em>web</em>, oddělený od EPOX softwaru.</p>
+        <p class="why">Proč: špatný odhad u věcí, které se těžko předělávají, stojí víc než jedna otázka.</p>
+      </li>
+      <li>
+        <span class="time">14:58</span>
+        <h3>Napsal jsem 4 soubory</h3>
+        <p><code>index.html</code> (kostra), <code>style.css</code> (vzhled), <code>script.js</code> (terminál s 15 příkazy, karty, 3 tlačítka, kontrola kódu, převod do Markdownu) a <code>README.md</code> (popis pro GitHub).</p>
+        <p class="why">Proč 3 soubory místo jednoho: HTML, CSS a JS mají každý svou roli, takže se v nich líp vyznáš a W3C validátor umí CSS zkontrolovat zvlášť.</p>
+      </li>
+      <li class="problem">
+        <span class="time">15:01</span>
+        <h3>Test v prohlížeči <span class="tag p">oprava</span></h3>
+        <p>Spustil jsem web v neviditelném Chromiu, napsal do terminálu <code>help</code>, <code>vtip</code>, <code>color</code> a neexistující příkaz a proklikal všechna tlačítka. Žádná chyba v JavaScriptu. Text ale tvrdil „16 testů“ a ve skutečnosti jich bylo 18, tak jsem to opravil.</p>
+      </li>
+      <li>
+        <span class="time">15:08</span>
+        <h3>Přesun na tvůj počítač</h3>
+        <p>Byl jsi na jiném počítači, jen s diskem C:. Požádal jsem o přístup ke složce <code>Dokumenty</code> a vytvořil v ní <code>EPOX-web</code>. Z webu jsem smazal všechny zmínky o EPOX softwaru.</p>
+      </li>
+      <li class="problem">
+        <span class="time">15:10</span>
+        <h3>Git na tvém počítači <span class="tag p">povolení</span></h3>
+        <p><code>git init</code>, <code>git commit</code> a připojení repozitáře <code>origin</code>. Git si při práci maže vlastní pomocné soubory <code>.lock</code>, a k tomu jsem potřeboval tvé povolení mazat ve složce Dokumenty. Nic jiného jsem nesmazal.</p>
+      </li>
+      <li>
+        <span class="time">15:11</span>
+        <h3>Push na GitHub</h3>
+        <p>Push jsem spustil přes git na tvém Windows, kde jsi přihlášený do GitHubu. Heslo jsem nikdy neviděl ani nezadával.</p>
+      </li>
+      <li class="problem">
+        <span class="time">15:14</span>
+        <h3>404 – repozitář byl soukromý <span class="tag p">problém</span></h3>
+        <p>GitHub Pages zadarmo funguje jen pro veřejné (public) repozitáře. Přepnul jsi repozitář na public.</p>
+      </li>
+      <li class="problem">
+        <span class="time">15:25</span>
+        <h3>GitHub Pages bylo vypnuté <span class="tag p">problém</span></h3>
+        <p>Přihlásil ses v prohlížeči v aplikaci a já jsem v <strong>Settings → Pages</strong> nastavil <code>main</code> / <code>(root)</code> a dal Save. Po minutě web běžel: 18× OK.</p>
+      </li>
+      <li>
+        <span class="time">15:33</span>
+        <h3>Oficiální W3C validátory</h3>
+        <p>Do kontroly jsem zapojil <a href="https://validator.w3.org/">validator.w3.org</a> (HTML) a <a href="https://jigsaw.w3.org/css-validator/">jigsaw.w3.org</a> (CSS). Web se jich ptá přes <code>fetch()</code> a čte odpověď ve formátu JSON.</p>
+      </li>
+      <li class="problem">
+        <span class="time">15:40</span>
+        <h3>Prohlížeč ukazoval starou verzi <span class="tag p">cache</span></h3>
+        <p>Prohlížeč si pamatoval starý <code>script.js</code>. Řešení: v <code>index.html</code> píšu <code>script.js?v=3</code>. Když se číslo změní, prohlížeč soubor stáhne znovu.</p>
+      </li>
+      <li class="problem">
+        <span class="time">15:45</span>
+        <h3>2 varování z CSS validátoru <span class="tag p">oprava</span></h3>
+        <p><code>word-break: break-word</code> je zastaralé, nahradil jsem ho moderním <code>overflow-wrap: anywhere</code>. Výsledek: <strong>20× OK, 0 varování, 0 chyb</strong>.</p>
+      </li>
+      <li>
+        <span class="time">15:55</span>
+        <h3>Tlačítka → oficiální weby, tahle stránka na Vercelu <span class="tag ok">teď</span></h3>
+        <p>Tlačítko <strong>Kontrola kódu</strong> otevře W3C HTML validátor, <strong>Kontrola v Markdownu</strong> otevře W3C CSS validátor. Vlastní kontrola zůstala v terminálu (příkazy <code>kontrola</code> a <code>md</code>). K tomu vznikla tahle stránka.</p>
+      </li>
+    </ol>
+  </section>
+
+  <!-- 3 -->
+  <section id="nastaveni">
+    <h2><span class="num">03</span>Nastavení a nástroje</h2>
+    <p class="sub">S čím jsem pracoval a jaká pravidla jsem dodržoval.</p>
+    <div class="grid">
+      <div class="card">
+        <h3>Kdo</h3>
+        <ul>
+          <li>Model: Claude Opus 5.5 (Anthropic)</li>
+          <li>Jazyk: čeština</li>
+          <li>Ty: zadání, rozhodnutí, přihlášení</li>
+          <li>Já: kód, testy, git, nastavení Pages</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>Nástroje</h3>
+        <ul>
+          <li>Psaní a úprava souborů</li>
+          <li>Terminál: <code>node</code>, <code>python</code>, <code>git</code></li>
+          <li>Chromium (Playwright) na testy</li>
+          <li>Přístup ke složce <code>Dokumenty</code></li>
+          <li>Prohlížeč v aplikaci Claude</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>Pravidla</h3>
+        <ul>
+          <li>Hesla nezadávám, přihlašuješ se ty</li>
+          <li>Mažu jen s tvým povolením</li>
+          <li>Před nahráním vždycky testuji</li>
+          <li>Po nahrání ověřím živý web</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4 -->
+  <section id="commity">
+    <h2><span class="num">04</span>Commity</h2>
+    <p class="sub">Každý commit je jedna uložená změna. Načítá se živě z GitHubu. Kliknutím na kód commitu uvidíš, co přesně se změnilo.</p>
+    <div id="commits" class="commits"><p class="loading">Načítám commity z GitHubu…</p></div>
+  </section>
+
+  <!-- 5 -->
+  <section id="kod">
+    <h2><span class="num">05</span>Kód</h2>
+    <p class="sub">Aktuální kód načtený přímo z GitHubu (větev <code>main</code>). Vlevo je vysvětlení, co soubor dělá.</p>
+    <div class="tabs" id="tabs"></div>
+    <div class="code-layout">
+      <aside class="explain" id="explain"></aside>
+      <div class="codebox">
+        <div class="codebar"><span id="codename"></span><a id="coderaw" href="#" target="_blank" rel="noopener">otevřít na GitHubu</a></div>
+        <pre class="code" id="code"><span class="l">Načítám…</span></pre>
+      </div>
+    </div>
+  </section>
+
+  <!-- 6 -->
+  <section id="slovnik">
+    <h2><span class="num">06</span>Slovníček</h2>
+    <p class="sub">Pojmy, které se v postupu objevily.</p>
+    <table>
+      <thead><tr><th>Pojem</th><th>Co to je</th></tr></thead>
+      <tbody>
+        <tr><td><code>git</code></td><td>Program, který si pamatuje historii souborů. Každá uložená verze je <em>commit</em>.</td></tr>
+        <tr><td><code>commit</code></td><td>Uložená změna se zprávou, co se změnilo.</td></tr>
+        <tr><td><code>push</code></td><td>Odeslání commitů z počítače na GitHub.</td></tr>
+        <tr><td>repozitář</td><td>Složka projektu na GitHubu včetně celé historie.</td></tr>
+        <tr><td>GitHub Pages</td><td>Služba GitHubu, která ze souborů v repozitáři udělá web na adrese <code>…github.io</code>.</td></tr>
+        <tr><td>Vercel</td><td>Jiná služba pro hostování webů. Tahle stránka běží na ní a sama se aktualizuje po každém pushi.</td></tr>
+        <tr><td>W3C</td><td>Organizace, která určuje standardy webu (HTML, CSS) a provozuje oficiální validátory.</td></tr>
+        <tr><td>validátor</td><td>Program, který zkontroluje, že kód odpovídá standardu.</td></tr>
+        <tr><td><code>fetch()</code></td><td>Funkce JavaScriptu, která stáhne data z jiné adresy, třeba výsledek validátoru.</td></tr>
+        <tr><td>cache</td><td>Paměť prohlížeče. Ukládá soubory, aby se web načítal rychleji, ale umí ukazovat starou verzi.</td></tr>
+        <tr><td>Markdown</td><td>Jednoduchý jazyk na formátování textu: <code># nadpis</code>, <code>- seznam</code>, <code>**tučně**</code>.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    EPOX web · <a href="https://github.com/orsi10jir-cloud/EPOX/tree/main/postup">zdroj této stránky</a> · 15. 10. 2026
+  </div>
+</footer>
+
+<script>
+'use strict';
+const REPO = 'orsi10jir-cloud/EPOX';
+const RAW = `https://raw.githubusercontent.com/${REPO}/main/`;
+
+// ---------- Commity z GitHub API ----------
+(async () => {
+  const box = document.getElementById('commits');
+  try {
+    const res = await fetch(`https://api.github.com/repos/${REPO}/commits?per_page=50`);
+    if (!res.ok) throw new Error(res.status);
+    const data = await res.json();
+    box.replaceChildren(...data.reverse().map((c, i) => {
+      const row = document.createElement('div');
+      row.className = 'commit';
+      const sha = document.createElement('a');
+      sha.className = 'sha';
+      sha.href = c.html_url;
+      sha.target = '_blank';
+      sha.rel = 'noopener';
+      sha.textContent = `#${i + 1} ${c.sha.slice(0, 7)}`;
+      const msg = document.createElement('span');
+      msg.textContent = c.commit.message.split('\n')[0];
+      const date = document.createElement('span');
+      date.className = 'date';
+      date.textContent = new Date(c.commit.author.date).toLocaleString('cs-CZ', { day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' });
+      row.append(sha, msg, date);
+      return row;
+    }));
+  } catch (e) {
+    box.innerHTML = '';
+    const p = document.createElement('p');
+    p.className = 'loading';
+    p.append('GitHub teď neodpověděl. Commity najdeš ');
+    const a = document.createElement('a');
+    a.href = `https://github.com/${REPO}/commits/main`;
+    a.textContent = 'přímo na GitHubu';
+    p.append(a, '.');
+    box.append(p);
+  }
+})();
+
+// ---------- Kód + vysvětlení ----------
+const SOUBORY = {
+  'index.html': {
+    co: 'Kostra stránky. Říká, co na webu je – ne jak to vypadá ani co to dělá.',
+    body: [
+      ['<!DOCTYPE html>, <html lang="cs">', 'Moderní HTML5 a čeština. Obojí kontroluje W3C validátor.'],
+      ['<meta charset>, <meta viewport>', 'Kódování UTF-8 kvůli háčkům a čárkám, viewport kvůli mobilům.'],
+      ['<section class="terminal">', 'Okno terminálu: výpis (#term-output) a formulář s jedním polem na příkazy.'],
+      ['<section class="cards">', '3 náhodné karty: fakt dne, kostka, hodiny.'],
+      ['<footer> + 3 × <button>', 'Tlačítka dole. Mají id (btn-history, btn-check, btn-md), podle kterých je najde script.js.'],
+      ['style.css?v=3', 'Číslo verze proti cache: po změně si prohlížeč stáhne nový soubor.'],
+    ],
+  },
+  'style.css': {
+    co: 'Vzhled: barvy, rozložení, animace. Prošel W3C CSS validátorem bez chyb.',
+    body: [
+      [':root { --accent: … }', 'CSS proměnné. Barvu změníš na jednom místě. Příkaz color ji mění za běhu.'],
+      ['display: grid', 'Mřížka pro karty a tlačítka. auto-fit sám přizpůsobí počet sloupců šířce obrazovky.'],
+      ['.footer { position: fixed }', 'Tlačítka jsou pořád přilepená dole.'],
+      ['@keyframes blink / roll', 'Animace: blikající kurzor a otočení kostky.'],
+      ['@media (max-width: 600px)', 'Na mobilu jsou tlačítka pod sebou.'],
+      ['overflow-wrap: anywhere', 'Zalomí dlouhé slovo. Nahradilo zastaralé break-word, na které upozornil W3C.'],
+    ],
+  },
+  'script.js': {
+    co: 'Logika webu: terminál, karty, 3 tlačítka, vlastní kontrola kódu a dotazy na W3C.',
+    body: [
+      ["window.addEventListener('error')", 'Chytá chyby za běhu, aby je kontrola mohla ukázat.'],
+      ['el(tag, attrs, …deti)', 'Pomocník na vytváření HTML prvků. Text vkládá bezpečně, ne jako HTML.'],
+      ['PRIKAZY = { help, cls, … }', 'Příkazy terminálu. Každý má popis a funkci run. Nový příkaz = nový řádek.'],
+      ['ArrowUp / ArrowDown', 'Historie příkazů šipkami, jako v cmd.'],
+      ['kontrola()', '18 vlastních testů: DOCTYPE, lang, ID, nadpisy, popisky, CSS, chyby JS, HTTPS…'],
+      ['w3cKontrola() + fetch()', 'Zeptá se validator.w3.org a jigsaw.w3.org a výsledek (JSON) přidá do kontroly.'],
+      ['vytvorMarkdown() / mdNaHtml()', 'Výsledek kontroly zapíše v Markdownu a malý převodník ho vykreslí.'],
+      ['otevriValidator(url)', 'Tlačítka 2 a 3: otevřou oficiální W3C validátor v nové kartě.'],
+    ],
+  },
+  'README.md': {
+    co: 'Popis projektu v Markdownu. GitHub ho zobrazí na hlavní stránce repozitáře.',
+    body: [
+      ['# a ##', 'Nadpisy.'],
+      ['| tabulka |', 'Tabulka souborů a k čemu jsou.'],
+      ['[text](odkaz)', 'Odkazy na W3C validátory a na tuhle stránku.'],
+    ],
+  },
+  'postup/index.html': {
+    co: 'Tahle stránka. Jeden soubor s HTML, CSS i JS dohromady. Commity a kód načítá živě z GitHubu.',
+    body: [
+      ['api.github.com/…/commits', 'Seznam commitů. Po každém pushi se tu objeví nový.'],
+      ['raw.githubusercontent.com', 'Odtud se načítá kód, který vidíš vpravo.'],
+      ['textContent místo innerHTML', 'Kód se vkládá jako text, takže se nespustí, jen zobrazí.'],
+    ],
+  },
+};
+
+const tabs = document.getElementById('tabs');
+const explain = document.getElementById('explain');
+const codeEl = document.getElementById('code');
+const cache = {};
+
+function vysvetli(nazev) {
+  const s = SOUBORY[nazev];
+  const h = document.createElement('h3');
+  h.textContent = nazev;
+  const p = document.createElement('p');
+  p.textContent = s.co;
+  const dl = document.createElement('dl');
+  for (const [dt, dd] of s.body) {
+    const t = document.createElement('dt');
+    const c = document.createElement('code');
+    c.textContent = dt;
+    t.append(c);
+    const d = document.createElement('dd');
+    d.textContent = dd;
+    dl.append(t, d);
+  }
+  explain.replaceChildren(h, p, dl);
+}
+
+function vykresliKod(text, nazev) {
+  const komentar = nazev.endsWith('.md') ? null : /^\s*(\/\/|\/\*|\*|<!--)/;
+  const radky = text.replace(/\n$/, '').split('\n').map((r) => {
+    const s = document.createElement('span');
+    s.className = 'l' + (komentar && komentar.test(r) ? ' c' : '');
+    s.textContent = r || ' ';
+    return s;
+  });
+  codeEl.replaceChildren(...radky);
+}
+
+async function ukaz(nazev) {
+  [...tabs.children].forEach((b) => b.classList.toggle('active', b.dataset.f === nazev));
+  vysvetli(nazev);
+  document.getElementById('codename').textContent = nazev;
+  document.getElementById('coderaw').href = `https://github.com/${REPO}/blob/main/${nazev}`;
+  try {
+    if (!cache[nazev]) {
+      const res = await fetch(RAW + nazev + '?t=' + Date.now());
+      if (!res.ok) throw new Error(res.status);
+      cache[nazev] = await res.text();
+    }
+    vykresliKod(cache[nazev], nazev);
+  } catch {
+    vykresliKod('Kód se nepodařilo načíst. Otevři ho přes odkaz „otevřít na GitHubu“.', 'x.md');
+  }
+}
+
+for (const nazev of Object.keys(SOUBORY)) {
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.textContent = nazev;
+  b.dataset.f = nazev;
+  b.addEventListener('click', () => ukaz(nazev));
+  tabs.append(b);
+}
+ukaz('script.js');
+</script>
+</body>
+</html>

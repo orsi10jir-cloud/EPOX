@@ -84,7 +84,7 @@ const PRIKAZY = {
   matrix:   { popis: 'matrix efekt (zastavíš klikem/klávesou)', run: () => matrix() },
   ver:      { popis: 'verze', run: () => tisk('EPOX web [verze 1.0.0]') },
   whoami:   { popis: 'kdo jsi', run: () => tisk('host@epox-web') },
-  kontrola: { popis: 'spustí kontrolu kódu', run: () => { tisk('Spouštím kontrolu…'); ukazKontrolu(); } },
+  kontrola: { popis: 'vlastní kontrola kódu (+ W3C)', run: () => { tisk('Spouštím kontrolu…'); ukazKontrolu(); } },
   md:       { popis: 'kontrola v Markdownu', run: () => { tisk('Generuji Markdown…'); ukazMarkdown(); } },
   historie: { popis: 'co jsme dělali', run: () => ukazHistorii() },
 };
@@ -199,6 +199,8 @@ const HISTORIE = {
     'Vybral jsi Markdown jako jazyk „naučitelný za 60 sekund“ pro 3. tlačítko.',
     'Vybral jsi, že kontrola kódu má zkontrolovat web sám sebe.',
     'Chtěl jsi, aby kontrola používala W3C HTML a W3C CSS validátor.',
+    'Chtěl jsi, aby tlačítka 2 a 3 přesměrovala přímo na oficiální weby validátorů.',
+    'Chtěl jsi web na Vercelu, kde uvidíš, jak jsem pracoval a celý kód.',
     'Chtěl jsi, aby web běžel na GitHubu.',
   ],
   ja: [
@@ -208,6 +210,8 @@ const HISTORIE = {
     'Přidal jsem náhodné karty: fakt dne, kostku a hodiny.',
     'Napsal jsem kontrolu kódu se 18 testy a její verzi v Markdownu (kopírovat / stáhnout .md).',
     'Zapojil jsem do kontroly oficiální W3C validátory HTML (validator.w3.org) a CSS (jigsaw.w3.org).',
+    'Tlačítko 2 teď otevře W3C HTML validátor, tlačítko 3 W3C CSS validátor. Vlastní kontrola zůstala v terminálu (kontrola, md).',
+    'Udělal jsem web „Jak to vzniklo“ na Vercelu s celým postupem a kódem.',
     'Vytvořil jsem složku na tvém počítači a nahrál web na GitHub Pages.',
   ],
   nastaveni: [
@@ -311,7 +315,11 @@ function spocitej(v) {
 }
 
 /* ---------- Oficiální W3C validátory ---------- */
-const adresaWebu = () => location.href.split('#')[0].split('?')[0].replace(/index\.html$/, '');
+// Adresa webu pro validátory (z disku se použije adresa na GitHub Pages)
+const ONLINE_ADRESA = 'https://orsi10jir-cloud.github.io/EPOX/';
+const adresaWebu = () => location.protocol.startsWith('http')
+  ? location.href.split('#')[0].split('?')[0].replace(/index\.html$/, '')
+  : ONLINE_ADRESA;
 const W3C_HTML_ODKAZ = () => `https://validator.w3.org/nu/?doc=${encodeURIComponent(adresaWebu())}`;
 const W3C_CSS_ODKAZ = () => `https://jigsaw.w3.org/css-validator/validator?profile=css3svg&uri=${encodeURIComponent(adresaWebu() + 'style.css')}`;
 
@@ -506,8 +514,15 @@ async function ukazMarkdown() {
 
 /* ---------- Tlačítka dole ---------- */
 $('#btn-history').addEventListener('click', ukazHistorii);
-$('#btn-check').addEventListener('click', ukazKontrolu);
-$('#btn-md').addEventListener('click', ukazMarkdown);
+// Tlačítko 2 -> oficiální W3C HTML validátor, tlačítko 3 -> oficiální W3C CSS validátor
+// (otevře se v nové kartě, EPOX web zůstane otevřený)
+function otevriValidator(url) {
+  const okno = window.open(url, '_blank');
+  if (okno) okno.opener = null; // bezpečnost: nová karta nemůže ovládat náš web
+  else location.href = url;     // když prohlížeč blokuje novou kartu, přejdi v téhle
+}
+$('#btn-check').addEventListener('click', () => otevriValidator(W3C_HTML_ODKAZ()));
+$('#btn-md').addEventListener('click', () => otevriValidator(W3C_CSS_ODKAZ()));
 
 /* ---------- Start terminálu ---------- */
 tisk('EPOX web [verze 1.0.0]');
